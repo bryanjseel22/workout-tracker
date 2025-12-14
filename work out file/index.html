@@ -1,0 +1,1585 @@
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { Calendar, Plus, Home, Dumbbell, TrendingUp, ChevronRight, X, ArrowLeft, Check, AlertCircle } from 'lucide-react';
+
+const styles = `
+  @keyframes confetti {
+    0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+    100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+  }
+  
+  @keyframes bounce-in {
+    0% { transform: scale(0.3); opacity: 0; }
+    50% { transform: scale(1.05); }
+    70% { transform: scale(0.9); }
+    100% { transform: scale(1); opacity: 1; }
+  }
+  
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  
+  @keyframes pr-celebration {
+    0%, 100% { transform: scale(1); }
+    25% { transform: scale(1.1) rotate(-5deg); }
+    75% { transform: scale(1.1) rotate(5deg); }
+  }
+  
+  .animate-confetti {
+    animation: confetti linear forwards;
+  }
+  
+  .animate-bounce-in {
+    animation: bounce-in 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  }
+  
+  .animate-fade-in {
+    animation: fade-in 0.3s ease-in;
+  }
+  
+  .animate-pr-celebration {
+    animation: pr-celebration 0.6s ease-in-out;
+  }
+`;
+
+// FIXED: Cleaned up exercise library with proper categorizations
+const EXERCISE_LIBRARY = {
+  Abs: [
+    { name: 'Ab Wheel Rollout', equipment: 'bodyweight', startWeight: 0 },
+    { name: 'Bicycle Crunches', equipment: 'bodyweight', startWeight: 0 },
+    { name: 'Cable Crunches', equipment: 'cable', startWeight: 0 },
+    { name: 'Decline Sit-ups', equipment: 'bodyweight', startWeight: 0 },
+    { name: 'Hanging Leg Raises', equipment: 'bodyweight', startWeight: 0 },
+    { name: 'Plank', equipment: 'bodyweight', startWeight: 0 },
+    { name: 'Russian Twists', equipment: 'bodyweight', startWeight: 0 }
+  ],
+  Adductors: [
+    { name: 'Adductor Machine', equipment: 'machine', startWeight: 0 },
+    { name: 'Copenhagen Plank', equipment: 'bodyweight', startWeight: 0 }
+  ],
+  Back: [
+    { name: 'BB Row', equipment: 'barbell', startWeight: 45 },
+    { name: 'Bent Over Row', equipment: 'barbell', startWeight: 45 },
+    { name: 'Cable Wide Grip Row', equipment: 'cable', startWeight: 0 },
+    { name: 'Chest Supported Row', equipment: 'machine', startWeight: 0 },
+    { name: 'Close Grip Cable Row', equipment: 'cable', startWeight: 0 },
+    { name: 'DB Incline Row', equipment: 'dumbbell', startWeight: 0 },
+    { name: 'Single Arm Cable Row', equipment: 'cable', startWeight: 0 },
+    { name: 'T-Bar Row', equipment: 'barbell', startWeight: 45 }
+  ],
+  Biceps: [
+    { name: 'BB Curl', equipment: 'barbell', startWeight: 45 },
+    { name: 'Cable Curl', equipment: 'cable', startWeight: 0 },
+    { name: 'Cable Preacher Curl', equipment: 'cable', startWeight: 0 },
+    { name: 'Concentration Curl', equipment: 'dumbbell', startWeight: 0 },
+    { name: 'DB Curl', equipment: 'dumbbell', startWeight: 0 },
+    { name: 'DB Preacher Curl', equipment: 'dumbbell', startWeight: 0 },
+    { name: 'Hammer Curl', equipment: 'dumbbell', startWeight: 0 },
+    { name: 'Preacher Curl', equipment: 'barbell', startWeight: 45 },
+    { name: 'Spider Curl', equipment: 'barbell', startWeight: 45 }
+  ],
+  Calves: [
+    { name: 'BB Calf Raise', equipment: 'barbell', startWeight: 45 },
+    { name: 'Calf Press', equipment: 'machine', startWeight: 0 },
+    { name: 'Seated Calf Machine', equipment: 'machine', startWeight: 0 },
+    { name: 'Standing Calf Raise', equipment: 'machine', startWeight: 0 }
+  ],
+  Chest: [
+    { name: 'Barbell Bench Press', equipment: 'barbell', startWeight: 45 },
+    { name: 'Cable Crossover', equipment: 'cable', startWeight: 0 },
+    { name: 'Chest Dips', equipment: 'bodyweight', startWeight: 0 },
+    { name: 'DB Bench Press', equipment: 'dumbbell', startWeight: 0 },
+    { name: 'DB Fly', equipment: 'dumbbell', startWeight: 0 },
+    { name: 'DB Incline Bench', equipment: 'dumbbell', startWeight: 0 },
+    { name: 'Incline Barbell Bench', equipment: 'barbell', startWeight: 45 },
+    { name: 'Machine Chest Press', equipment: 'machine', startWeight: 0 },
+    { name: 'Pec Deck', equipment: 'machine', startWeight: 0 },
+    { name: 'Push-ups', equipment: 'bodyweight', startWeight: 0 }
+  ],
+  Forearms: [
+    { name: 'Farmers Walk', equipment: 'dumbbell', startWeight: 0 },
+    { name: 'Reverse Curl', equipment: 'barbell', startWeight: 45 },
+    { name: 'Reverse Wrist Curls', equipment: 'barbell', startWeight: 45 },
+    { name: 'Wrist Curls', equipment: 'barbell', startWeight: 45 }
+  ],
+  Front_Delt: [
+    { name: 'Arnold Press', equipment: 'dumbbell', startWeight: 0 },
+    { name: 'DB Front Raises', equipment: 'dumbbell', startWeight: 0 },
+    { name: 'DB Shoulder Press', equipment: 'dumbbell', startWeight: 0 },
+    { name: 'Military Press', equipment: 'barbell', startWeight: 45 }
+  ],
+  Hamstrings: [
+    { name: 'Good Mornings', equipment: 'barbell', startWeight: 45 },
+    { name: 'Lying Leg Curl', equipment: 'machine', startWeight: 0 },
+    { name: 'RDL', equipment: 'barbell', startWeight: 45 },
+    { name: 'Seated Leg Curl', equipment: 'machine', startWeight: 0 }
+  ],
+  Lateral_Delt: [
+    { name: 'Cable Lateral Raise', equipment: 'cable', startWeight: 0 },
+    { name: 'DB Lateral Raise', equipment: 'dumbbell', startWeight: 0 },
+    { name: 'Upright Row', equipment: 'barbell', startWeight: 45 }
+  ],
+  Lats: [
+    { name: 'Close Grip Lat Pull Down', equipment: 'cable', startWeight: 0 },
+    { name: 'Lat Pull Down Machine', equipment: 'machine', startWeight: 0 },
+    { name: 'Pull Ups', equipment: 'bodyweight', startWeight: 0 },
+    { name: 'Straight Arm Pulldown', equipment: 'cable', startWeight: 0 },
+    { name: 'Wide Grip Lat Pull Down', equipment: 'cable', startWeight: 0 }
+  ],
+  Lower_Back: [
+    { name: 'Back Extension', equipment: 'bodyweight', startWeight: 0 },
+    { name: 'Deadlift', equipment: 'barbell', startWeight: 45 },
+    { name: 'Good Mornings', equipment: 'barbell', startWeight: 45 },
+    { name: 'Hyperextensions', equipment: 'machine', startWeight: 0 }
+  ],
+  Quads: [
+    { name: 'BB Squat', equipment: 'barbell', startWeight: 45 },
+    { name: 'Bulgarian Split Squat', equipment: 'dumbbell', startWeight: 0 },
+    { name: 'Hack Squat', equipment: 'sled', startWeight: 80 },
+    { name: 'Leg Extensions', equipment: 'machine', startWeight: 0 },
+    { name: 'Leg Press', equipment: 'sled', startWeight: 100 },
+    { name: 'Walking Lunges', equipment: 'dumbbell', startWeight: 0 }
+  ],
+  Rear_Delt: [
+    { name: 'Bent Over Rear Fly', equipment: 'dumbbell', startWeight: 0 },
+    { name: 'DB Incline Rear Delt Row', equipment: 'dumbbell', startWeight: 0 },
+    { name: 'Face Pulls', equipment: 'cable', startWeight: 0 },
+    { name: 'Reverse Pec Deck', equipment: 'machine', startWeight: 0 }
+  ],
+  Traps: [
+    { name: 'BB Shrug', equipment: 'barbell', startWeight: 45 },
+    { name: 'DB Shrug', equipment: 'dumbbell', startWeight: 0 },
+    { name: 'Rack Pulls', equipment: 'barbell', startWeight: 45 },
+    { name: 'Shrug Machine', equipment: 'machine', startWeight: 0 }
+  ],
+  Triceps: [
+    { name: 'Dip Machine', equipment: 'machine', startWeight: 0 },
+    { name: 'JM Press', equipment: 'barbell', startWeight: 45 },
+    { name: 'Overhead DB Extension', equipment: 'dumbbell', startWeight: 0 },
+    { name: 'Overhead Rope Extension', equipment: 'cable', startWeight: 0 },
+    { name: 'Rope Push Down', equipment: 'cable', startWeight: 0 },
+    { name: 'Skull Crushers', equipment: 'barbell', startWeight: 45 },
+    { name: 'Straight Bar Push Down', equipment: 'cable', startWeight: 0 },
+    { name: 'Tricep Dips', equipment: 'bodyweight', startWeight: 0 },
+    { name: 'V-Bar Push Down', equipment: 'cable', startWeight: 0 }
+  ]
+};
+
+const MUSCLE_GROUPS = Object.keys(EXERCISE_LIBRARY);
+
+// FIXED: Added data validation schema
+const DATA_VERSION = 1;
+
+const validateSetData = (set) => {
+  if (!set || typeof set !== 'object') return false;
+  const weight = parseFloat(set.weight);
+  const reps = parseInt(set.reps);
+  const rpe = parseFloat(set.rpe);
+  
+  if (isNaN(weight) || weight < 0 || weight > 2000) return false;
+  if (isNaN(reps) || reps < 0 || reps > 200) return false;
+  if (set.rpe && (isNaN(rpe) || rpe < 0 || rpe > 10)) return false;
+  
+  return true;
+};
+
+const validateWorkoutData = (data) => {
+  if (!data || !Array.isArray(data)) return false;
+  
+  return data.every(workout => {
+    if (!workout.date || !workout.exercises || !Array.isArray(workout.exercises)) return false;
+    
+    return workout.exercises.every(exercise => {
+      if (!exercise.name || !exercise.sets || !Array.isArray(exercise.sets)) return false;
+      return exercise.sets.every(validateSetData);
+    });
+  });
+};
+
+const validatePRData = (data) => {
+  if (!data || typeof data !== 'object') return false;
+  
+  return Object.values(data).every(pr => {
+    if (!pr || typeof pr !== 'object') return false;
+    const weight = parseFloat(pr.weight);
+    const reps = parseInt(pr.reps);
+    
+    return !isNaN(weight) && weight >= 0 && !isNaN(reps) && reps >= 0 && pr.date;
+  });
+};
+
+export default function WorkoutTrackerApp() {
+  const [currentScreen, setCurrentScreen] = useState('home');
+  const [workoutDate, setWorkoutDate] = useState('');
+  const [plannedWorkout, setPlannedWorkout] = useState([]);
+  const [currentExerciseIndex, setCurrentExerciseIndex] = useState(0);
+  const [currentExerciseData, setCurrentExerciseData] = useState({ sets: [] });
+  const [completedWorkout, setCompletedWorkout] = useState([]);
+  const [exerciseDataCache, setExerciseDataCache] = useState({}); // Store data for each exercise
+  const [workoutHistory, setWorkoutHistory] = useState([]);
+  const [selectedMuscleGroup, setSelectedMuscleGroup] = useState(null);
+  const [showExerciseList, setShowExerciseList] = useState(false);
+  const [viewingWorkout, setViewingWorkout] = useState(null);
+  const [showWeightCalculator, setShowWeightCalculator] = useState(false);
+  const [calculatorSetIndex, setCalculatorSetIndex] = useState(null);
+  const [plateConfig, setPlateConfig] = useState({ plates45: 0, plates25: 0, plates10: 0, plates5: 0, plates2_5: 0 });
+  const [personalRecords, setPersonalRecords] = useState({});
+  const [newPRs, setNewPRs] = useState([]);
+  const [errorMessage, setErrorMessage] = useState('');
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [confirmAction, setConfirmAction] = useState(null);
+
+  // FIXED: Improved storage loading with proper error handling and validation
+  useEffect(() => {
+    const loadHistory = async () => {
+      try {
+        console.log('Attempting to load workout history...');
+        const result = await window.storage.get('workout-history');
+        console.log('Storage result:', result);
+        
+        if (result && result.value) {
+          const parsed = JSON.parse(result.value);
+          console.log('Parsed workout history:', parsed);
+          
+          // Validate data structure
+          if (validateWorkoutData(parsed)) {
+            setWorkoutHistory(parsed);
+            console.log('Workout history loaded successfully:', parsed.length, 'workouts');
+          } else {
+            console.error('Invalid workout history data format');
+            // Don't show error for invalid data - just start fresh silently
+            setWorkoutHistory([]);
+          }
+        } else {
+          // No data found - this is normal for first time users
+          console.log('No workout history found in storage');
+          setWorkoutHistory([]);
+        }
+      } catch (error) {
+        // Only show error if it's NOT a "key not found" error
+        console.error('Error loading history:', error);
+        if (error.message && !error.message.includes('not found') && !error.message.includes('does not exist')) {
+          console.error('Unexpected error loading history:', error);
+          setErrorMessage('Could not load workout history. Starting fresh.');
+        }
+        setWorkoutHistory([]);
+      }
+    };
+    
+    const loadPRs = async () => {
+      try {
+        console.log('Attempting to load personal records...');
+        const result = await window.storage.get('personal-records');
+        
+        if (result && result.value) {
+          const parsed = JSON.parse(result.value);
+          console.log('Parsed PRs:', parsed);
+          
+          // Validate PR data structure
+          if (validatePRData(parsed)) {
+            setPersonalRecords(parsed);
+            console.log('Personal records loaded successfully:', Object.keys(parsed).length, 'PRs');
+          } else {
+            console.error('Invalid PR data format');
+            setPersonalRecords({});
+          }
+        } else {
+          // No data found - normal for first time
+          console.log('No personal records found in storage');
+          setPersonalRecords({});
+        }
+      } catch (error) {
+        // Silent fail for key not found
+        console.error('Error loading PRs:', error);
+        if (error.message && !error.message.includes('not found') && !error.message.includes('does not exist')) {
+          console.error('Unexpected error loading PRs:', error);
+        }
+        setPersonalRecords({});
+      }
+    };
+    
+    loadHistory();
+    loadPRs();
+  }, []);
+
+  // FIXED: Added proper error handling for storage operations
+  const savePRs = async (prs) => {
+    try {
+      await window.storage.set('personal-records', JSON.stringify(prs));
+    } catch (error) {
+      console.error('Error saving PRs:', error);
+      setErrorMessage('Failed to save personal records. Please try again.');
+    }
+  };
+
+  // FIXED: PR tracking logic - only checks at exercise completion, not during set entry
+  const checkForPRs = (exerciseName, sets) => {
+    const foundPRs = [];
+    const currentPR = personalRecords[exerciseName];
+    
+    sets.forEach(set => {
+      const newWeight = parseFloat(set.weight);
+      const newReps = parseInt(set.reps);
+      
+      if (!validateSetData(set)) return;
+      
+      let isNewPR = false;
+      
+      if (!currentPR) {
+        isNewPR = true;
+      } else if (newWeight > currentPR.weight) {
+        isNewPR = true;
+      } else if (newWeight === currentPR.weight && newReps > currentPR.reps) {
+        isNewPR = true;
+      }
+      
+      if (isNewPR) {
+        // Only update if this is better than what we've seen so far
+        const existingPRIndex = foundPRs.findIndex(pr => pr.exercise === exerciseName);
+        if (existingPRIndex >= 0) {
+          const existing = foundPRs[existingPRIndex];
+          if (newWeight > existing.weight || (newWeight === existing.weight && newReps > existing.reps)) {
+            foundPRs[existingPRIndex] = { exercise: exerciseName, weight: newWeight, reps: newReps };
+          }
+        } else {
+          foundPRs.push({ exercise: exerciseName, weight: newWeight, reps: newReps });
+        }
+      }
+    });
+    
+    return foundPRs;
+  };
+
+  const saveHistory = async (history) => {
+    try {
+      console.log('Saving workout history:', history.length, 'workouts');
+      await window.storage.set('workout-history', JSON.stringify(history));
+      console.log('Workout history saved successfully');
+    } catch (error) {
+      console.error('Error saving history:', error);
+      setErrorMessage('Failed to save workout history. Please try again.');
+    }
+  };
+
+  const startWorkoutFlow = () => {
+    const today = new Date().toISOString().split('T')[0];
+    setWorkoutDate(today);
+    setCurrentScreen('opening');
+  };
+
+  const addExerciseToWorkout = (exerciseObj, muscleGroup) => {
+    const newExercise = {
+      id: Date.now(),
+      name: exerciseObj.name,
+      muscleGroup: muscleGroup,
+      equipment: exerciseObj.equipment,
+      startWeight: exerciseObj.startWeight,
+      sets: []
+    };
+    setPlannedWorkout([...plannedWorkout, newExercise]);
+    setShowExerciseList(false);
+    setSelectedMuscleGroup(null);
+  };
+
+  const removeExerciseFromPlan = (id) => {
+    setPlannedWorkout(plannedWorkout.filter(ex => ex.id !== id));
+  };
+
+  const startExecutingWorkout = () => {
+    if (plannedWorkout.length === 0) return;
+    setCurrentExerciseIndex(0);
+    initializeExerciseData(plannedWorkout[0], 0);
+    setCurrentScreen('execute');
+  };
+
+  const goToPreviousExercise = () => {
+    if (currentExerciseIndex === 0) return; // Already at first exercise
+    
+    // Save current exercise data to cache
+    const updatedCache = {
+      ...exerciseDataCache,
+      [currentExerciseIndex]: currentExerciseData
+    };
+    setExerciseDataCache(updatedCache);
+    
+    // Move to previous exercise
+    const prevIndex = currentExerciseIndex - 1;
+    setCurrentExerciseIndex(prevIndex);
+    initializeExerciseData(plannedWorkout[prevIndex], prevIndex);
+  };
+
+  const initializeExerciseData = (exercise, exerciseIndex) => {
+    // Check if we already have cached data for this exercise
+    if (exerciseDataCache[exerciseIndex]) {
+      setCurrentExerciseData(exerciseDataCache[exerciseIndex]);
+      return;
+    }
+
+    // Find last time this exercise was done
+    const lastWorkout = workoutHistory
+      .flatMap(w => w.exercises)
+      .filter(e => e.name === exercise.name)
+      .sort((a, b) => new Date(b.date) - new Date(a.date))[0];
+
+    const numSets = lastWorkout ? lastWorkout.sets.length : 3;
+    const emptySets = Array(numSets).fill(null).map(() => ({
+      weight: '',
+      reps: '',
+      rpe: ''
+    }));
+
+    setCurrentExerciseData({
+      ...exercise,
+      sets: emptySets,
+      lastWorkout: lastWorkout
+    });
+  };
+
+  const openWeightCalculator = (setIndex) => {
+    setCalculatorSetIndex(setIndex);
+    setPlateConfig({ plates45: 0, plates25: 0, plates10: 0, plates5: 0, plates2_5: 0 });
+    setShowWeightCalculator(true);
+  };
+
+  const calculateTotalWeight = () => {
+    const equipment = currentExerciseData.equipment;
+    const startWeight = currentExerciseData.startWeight || 0;
+    
+    if (equipment === 'barbell' || equipment === 'sled') {
+      const platesPerSide = 
+        (plateConfig.plates45 * 45) +
+        (plateConfig.plates25 * 25) +
+        (plateConfig.plates10 * 10) +
+        (plateConfig.plates5 * 5) +
+        (plateConfig.plates2_5 * 2.5);
+      return startWeight + (platesPerSide * 2);
+    }
+    
+    if (equipment === 'dumbbell') {
+      const dbWeight = plateConfig.plates45 || 0;
+      return dbWeight * 2;
+    }
+    
+    if (equipment === 'machine') {
+      // For plate-loaded machines, count plates per side (no bar weight)
+      const platesPerSide = 
+        (plateConfig.plates45 * 45) +
+        (plateConfig.plates25 * 25) +
+        (plateConfig.plates10 * 10) +
+        (plateConfig.plates5 * 5) +
+        (plateConfig.plates2_5 * 2.5);
+      return platesPerSide * 2;
+    }
+    
+    return plateConfig.plates45 || 0;
+  };
+
+  const applyCalculatedWeight = () => {
+    const total = calculateTotalWeight();
+    updateSet(calculatorSetIndex, 'weight', total.toString());
+    setShowWeightCalculator(false);
+  };
+
+  // FIXED: Removed PR checking from updateSet - only validate input now
+  const updateSet = (index, field, value) => {
+    // FIXED: Add input validation
+    if (field === 'weight' || field === 'reps') {
+      const numValue = parseFloat(value);
+      if (value !== '' && (isNaN(numValue) || numValue < 0)) {
+        return; // Reject invalid input
+      }
+      if (field === 'weight' && numValue > 2000) return;
+      if (field === 'reps' && numValue > 200) return;
+    }
+    
+    if (field === 'rpe') {
+      const numValue = parseFloat(value);
+      if (value !== '' && (isNaN(numValue) || numValue < 0 || numValue > 10)) {
+        return; // Reject invalid RPE
+      }
+    }
+    
+    const newSets = [...currentExerciseData.sets];
+    newSets[index] = { ...newSets[index], [field]: value };
+    setCurrentExerciseData({ ...currentExerciseData, sets: newSets });
+  };
+
+  const addSet = () => {
+    setCurrentExerciseData({
+      ...currentExerciseData,
+      sets: [...currentExerciseData.sets, { weight: '', reps: '', rpe: '' }]
+    });
+  };
+
+  const removeSet = (index) => {
+    if (currentExerciseData.sets.length <= 1) {
+      setErrorMessage('You must have at least one set.');
+      return;
+    }
+    const newSets = currentExerciseData.sets.filter((_, i) => i !== index);
+    setCurrentExerciseData({ ...currentExerciseData, sets: newSets });
+  };
+
+  // FIXED: PR checking now happens ONLY at exercise completion
+  const completeExercise = () => {
+    const validSets = currentExerciseData.sets.filter(s => s.weight && s.reps && validateSetData(s));
+    
+    if (validSets.length === 0) {
+      setErrorMessage('Please complete at least one set with valid weight and reps.');
+      return;
+    }
+    
+    const exerciseWithData = {
+      ...plannedWorkout[currentExerciseIndex],
+      sets: validSets,
+      date: workoutDate
+    };
+    
+    setCompletedWorkout([...completedWorkout, exerciseWithData]);
+
+    // Check for PRs only once, at completion
+    const foundPRs = checkForPRs(exerciseWithData.name, validSets);
+    
+    if (foundPRs.length > 0) {
+      const updatedPRs = { ...personalRecords };
+      foundPRs.forEach(pr => {
+        updatedPRs[pr.exercise] = {
+          weight: pr.weight,
+          reps: pr.reps,
+          date: workoutDate
+        };
+      });
+      setPersonalRecords(updatedPRs);
+      savePRs(updatedPRs);
+      setNewPRs([...newPRs, ...foundPRs]);
+    }
+
+    // Save current exercise data to cache (in case user goes back)
+    const updatedCache = {
+      ...exerciseDataCache,
+      [currentExerciseIndex]: currentExerciseData
+    };
+    setExerciseDataCache(updatedCache);
+
+    // Move to next exercise or additions screen
+    if (currentExerciseIndex < plannedWorkout.length - 1) {
+      const nextIndex = currentExerciseIndex + 1;
+      setCurrentExerciseIndex(nextIndex);
+      initializeExerciseData(plannedWorkout[nextIndex], nextIndex);
+    } else {
+      setCurrentScreen('additions');
+    }
+  };
+
+  const addMoreExercises = () => {
+    setCurrentScreen('builder');
+  };
+
+  const finishWorkout = () => {
+    const workout = {
+      date: workoutDate,
+      exercises: completedWorkout,
+      totalVolume: calculateTotalVolume(completedWorkout),
+      volumeByMuscleGroup: calculateVolumeByMuscleGroup(completedWorkout),
+      version: DATA_VERSION
+    };
+
+    const newHistory = [workout, ...workoutHistory];
+    setWorkoutHistory(newHistory);
+    saveHistory(newHistory);
+
+    setCurrentScreen('summary');
+  };
+
+  const calculateTotalVolume = (exercises) => {
+    return exercises.reduce((total, ex) => {
+      return total + ex.sets.reduce((exTotal, set) => {
+        return exTotal + (parseFloat(set.weight) || 0) * (parseInt(set.reps) || 0);
+      }, 0);
+    }, 0);
+  };
+
+  const calculateVolumeByMuscleGroup = (exercises) => {
+    const volumes = {};
+    exercises.forEach(ex => {
+      const vol = ex.sets.reduce((total, set) => {
+        return total + (parseFloat(set.weight) || 0) * (parseInt(set.reps) || 0);
+      }, 0);
+      volumes[ex.muscleGroup] = (volumes[ex.muscleGroup] || 0) + vol;
+    });
+    return volumes;
+  };
+
+  const resetWorkout = () => {
+    setPlannedWorkout([]);
+    setCompletedWorkout([]);
+    setCurrentExerciseIndex(0);
+    setNewPRs([]);
+    setExerciseDataCache({}); // Clear cached exercise data
+    setCurrentScreen('home');
+  };
+
+  // FIXED: Memoized expensive calculations
+  const weeklyVolume = useMemo(() => {
+    const oneWeekAgo = new Date();
+    oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+    
+    const recentWorkouts = workoutHistory.filter(w => new Date(w.date) >= oneWeekAgo);
+    const volumes = {};
+    
+    recentWorkouts.forEach(workout => {
+      Object.entries(workout.volumeByMuscleGroup || {}).forEach(([group, vol]) => {
+        volumes[group] = (volumes[group] || 0) + vol;
+      });
+    });
+    
+    return volumes;
+  }, [workoutHistory]);
+
+  const getWorkoutTitle = (workout) => {
+    const muscleGroups = [...new Set(workout.exercises.map(ex => ex.muscleGroup))];
+    const topTwo = muscleGroups.slice(0, 2).map(mg => mg.replace(/_/g, ' ')).join(' & ');
+    return topTwo;
+  };
+
+  const confirmDeleteWorkout = (workout) => {
+    setConfirmAction(() => () => {
+      const newHistory = workoutHistory.filter(w => w !== workout);
+      setWorkoutHistory(newHistory);
+      saveHistory(newHistory);
+      setViewingWorkout(null);
+      setShowConfirmDialog(false);
+    });
+    setShowConfirmDialog(true);
+  };
+
+  const renderHome = () => {
+    return (
+      <div className="min-h-screen bg-zinc-950 text-white pb-20">
+        <div className="p-8">
+          <h1 className="text-3xl font-bold mb-6">Workout Stats</h1>
+          
+          {errorMessage && (
+            <div className="bg-red-900 bg-opacity-30 border border-red-700 rounded-lg p-4 mb-6 flex items-start gap-3">
+              <AlertCircle size={20} className="flex-shrink-0 mt-0.5" />
+              <div>
+                <div className="font-semibold mb-1">Error</div>
+                <div className="text-sm text-red-200">{errorMessage}</div>
+                <button
+                  onClick={() => setErrorMessage('')}
+                  className="text-xs text-red-400 hover:text-red-300 mt-2 underline"
+                >
+                  Dismiss
+                </button>
+              </div>
+            </div>
+          )}
+          
+          <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-4 mb-6 shadow-lg border border-gray-700">
+            <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+              <TrendingUp size={20} />
+              Weekly Volume by Muscle Group
+            </h2>
+            {Object.keys(weeklyVolume).length > 0 ? (
+              <div className="space-y-2">
+                {Object.entries(weeklyVolume)
+                  .sort((a, b) => b[1] - a[1])
+                  .map(([group, volume]) => (
+                    <div key={group} className="flex justify-between items-center">
+                      <span className="text-gray-300">{group.replace(/_/g, ' ')}</span>
+                      <span className="text-stone-400 font-semibold">{volume.toLocaleString()} lbs</span>
+                    </div>
+                  ))}
+              </div>
+            ) : (
+              <p className="text-gray-400">No workouts logged this week</p>
+            )}
+          </div>
+
+          <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-4 shadow-lg border border-gray-700">
+            <h2 className="text-xl font-semibold mb-4">Recent Workouts</h2>
+            {workoutHistory.length > 0 ? (
+              <div className="space-y-3">
+                {workoutHistory.slice(0, 6).map((workout, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => setViewingWorkout(workout)}
+                    className="w-full border-b border-gray-700 pb-3 text-left hover:bg-gray-800 hover:bg-opacity-30 rounded-lg p-2 transition-colors"
+                  >
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="font-semibold">{getWorkoutTitle(workout)}</span>
+                      <span className="text-stone-400">{workout.totalVolume.toLocaleString()} lbs</span>
+                    </div>
+                    <div className="text-sm text-gray-400">
+                      {new Date(workout.date).toLocaleDateString()} • {workout.exercises.length} exercises
+                    </div>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <p className="text-gray-400">No workouts logged yet. Start your first workout!</p>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderWorkoutDetail = () => {
+    if (!viewingWorkout) return null;
+
+    return (
+      <div className="min-h-screen bg-zinc-950 text-white pb-20">
+        <div className="p-8">
+          <div className="flex items-center gap-4 mb-6">
+            <button
+              onClick={() => setViewingWorkout(null)}
+              className="text-gray-400 hover:text-white"
+              aria-label="Go back"
+            >
+              <ArrowLeft size={24} />
+            </button>
+            <div>
+              <h1 className="text-2xl font-bold">{getWorkoutTitle(viewingWorkout)}</h1>
+              <p className="text-gray-400">{new Date(viewingWorkout.date).toLocaleDateString()}</p>
+            </div>
+          </div>
+
+          <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-6 mb-6 shadow-lg border border-gray-700">
+            <div className="text-center mb-4">
+              <div className="text-4xl font-bold text-stone-400 mb-2">
+                {viewingWorkout.totalVolume.toLocaleString()} lbs
+              </div>
+              <div className="text-gray-400">Total Volume</div>
+            </div>
+            
+            <div className="border-t border-gray-700 pt-4">
+              <h3 className="font-semibold mb-3">Volume by Muscle Group</h3>
+              <div className="space-y-2">
+                {Object.entries(viewingWorkout.volumeByMuscleGroup).map(([group, vol]) => (
+                  <div key={group} className="flex justify-between">
+                    <span className="text-gray-300">{group.replace(/_/g, ' ')}</span>
+                    <span className="text-stone-400">{vol.toLocaleString()} lbs</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-6 shadow-lg border border-gray-700">
+            <h3 className="font-semibold mb-3">Exercises</h3>
+            <div className="space-y-4">
+              {viewingWorkout.exercises.map((ex, idx) => (
+                <div key={idx} className="border-b border-gray-700 pb-3 last:border-b-0">
+                  <div className="font-semibold mb-1">{ex.name}</div>
+                  <div className="text-sm text-gray-400 mb-2">{ex.muscleGroup.replace(/_/g, ' ')}</div>
+                  <div className="flex gap-2 flex-wrap">
+                    {ex.sets.map((set, setIdx) => (
+                      <span key={setIdx} className="text-sm bg-gray-700 px-3 py-1 rounded-lg">
+                        {set.weight} lbs × {set.reps} reps
+                        {set.rpe && <span className="text-yellow-400 ml-1">@{set.rpe}</span>}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderOpeningScreen = () => (
+    <div className="min-h-screen bg-zinc-950 text-white flex flex-col items-center justify-center p-8">
+      <div className="w-full max-w-md">
+        <button
+          onClick={() => setCurrentScreen('home')}
+          className="absolute top-6 left-6 text-gray-400 hover:text-white"
+          aria-label="Go home"
+        >
+          <Home size={24} />
+        </button>
+
+        <h1 className="text-3xl font-bold mb-8 text-center">New Workout</h1>
+        
+        <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-6 mb-6 shadow-lg border border-gray-700">
+          <label className="block text-sm font-medium mb-2" htmlFor="workout-date">Date</label>
+          <input
+            id="workout-date"
+            type="date"
+            value={workoutDate}
+            onChange={(e) => setWorkoutDate(e.target.value)}
+            className="w-full bg-gray-700 rounded p-3 text-white"
+            aria-label="Workout date"
+          />
+        </div>
+
+        <button
+          onClick={() => setCurrentScreen('builder')}
+          className="w-full bg-stone-600 hover:bg-stone-700 text-white font-semibold py-4 rounded-lg flex items-center justify-center gap-2"
+        >
+          Build Workout
+          <ChevronRight size={20} />
+        </button>
+      </div>
+    </div>
+  );
+
+  const renderBuilder = () => (
+    <div className="min-h-screen bg-zinc-950 text-white pb-32">
+      <div className="p-8">
+        <div className="flex items-center justify-between mb-6">
+          <button
+            onClick={() => setCurrentScreen(plannedWorkout.length > 0 ? 'builder' : 'opening')}
+            className="text-gray-400 hover:text-white"
+            aria-label="Go back"
+          >
+            <ArrowLeft size={24} />
+          </button>
+          <h1 className="text-2xl font-bold">Build Workout</h1>
+          <div className="w-6"></div>
+        </div>
+
+        {errorMessage && (
+          <div className="bg-red-900 bg-opacity-30 border border-red-700 rounded-lg p-3 mb-4 flex items-start gap-2">
+            <AlertCircle size={16} className="flex-shrink-0 mt-0.5" />
+            <div className="text-sm">{errorMessage}</div>
+          </div>
+        )}
+
+        {plannedWorkout.length > 0 && (
+          <div className="mb-6">
+            <h2 className="text-lg font-semibold mb-3">Your Workout Plan</h2>
+            <div className="space-y-2">
+              {plannedWorkout.map((exercise, idx) => (
+                <div key={exercise.id} className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-4 flex items-center justify-between shadow-lg border border-gray-700">
+                  <div>
+                    <div className="font-semibold">{idx + 1}. {exercise.name}</div>
+                    <div className="text-sm text-gray-400">{exercise.muscleGroup.replace(/_/g, ' ')}</div>
+                  </div>
+                  <button
+                    onClick={() => removeExerciseFromPlan(exercise.id)}
+                    className="text-red-400 hover:text-red-300"
+                    aria-label={`Remove ${exercise.name}`}
+                  >
+                    <X size={20} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="mb-6">
+          <h2 className="text-lg font-semibold mb-3">Add Exercise</h2>
+          <div className="grid grid-cols-3 gap-2">
+            {MUSCLE_GROUPS.map(group => (
+              <button
+                key={group}
+                onClick={() => {
+                  setSelectedMuscleGroup(group);
+                  setShowExerciseList(true);
+                }}
+                className="bg-gradient-to-br from-gray-800 to-gray-900 hover:from-gray-700 hover:to-gray-800 p-4 rounded-2xl text-left shadow-lg border border-gray-700 text-sm"
+              >
+                {group.replace(/_/g, ' ')}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {plannedWorkout.length > 0 && (
+        <div className="fixed bottom-20 left-0 right-0 p-8 bg-gradient-to-t from-zinc-950 via-zinc-950 to-transparent">
+          <button
+            onClick={startExecutingWorkout}
+            className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-4 rounded-lg flex items-center justify-center gap-2"
+          >
+            <Dumbbell size={20} />
+            Start Workout
+          </button>
+        </div>
+      )}
+
+      {showExerciseList && selectedMuscleGroup && (
+        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-end z-50">
+          <div className="bg-gradient-to-br from-gray-800 to-gray-900 w-full rounded-t-3xl p-8 max-h-96 overflow-y-auto shadow-2xl border-t border-gray-700">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xl font-bold">{selectedMuscleGroup.replace(/_/g, ' ')}</h3>
+              <button
+                onClick={() => {
+                  setShowExerciseList(false);
+                  setSelectedMuscleGroup(null);
+                }}
+                className="text-gray-400 hover:text-white"
+                aria-label="Close exercise list"
+              >
+                <X size={24} />
+              </button>
+            </div>
+            <div className="space-y-2">
+              {EXERCISE_LIBRARY[selectedMuscleGroup].map(exerciseObj => (
+                <button
+                  key={exerciseObj.name}
+                  onClick={() => addExerciseToWorkout(exerciseObj, selectedMuscleGroup)}
+                  className="w-full bg-gradient-to-br from-gray-700 to-gray-800 hover:from-gray-600 hover:to-gray-700 p-3 rounded-xl text-left shadow-lg border border-gray-600"
+                >
+                  <div className="font-semibold">{exerciseObj.name}</div>
+                  <div className="text-xs text-gray-400 capitalize">{exerciseObj.equipment}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  const renderExecute = () => {
+    const currentExercise = plannedWorkout[currentExerciseIndex];
+    const equipment = currentExercise.equipment;
+    const startWeight = currentExercise.startWeight;
+
+    const getWeightLabel = () => {
+      if (equipment === 'machine' || equipment === 'cable') return 'Pin/Weight';
+      if (equipment === 'barbell') return `Weight (bar: ${startWeight}lb)`;
+      if (equipment === 'sled') return `Weight (sled: ${startWeight}lb)`;
+      if (equipment === 'dumbbell') return 'Weight (per DB)';
+      if (equipment === 'bodyweight') return 'Added Weight';
+      return 'Weight';
+    };
+
+    return (
+      <div className="min-h-screen bg-zinc-950 text-white pb-32">
+        <div className="p-8">
+          {errorMessage && (
+            <div className="bg-red-900 bg-opacity-30 border border-red-700 rounded-lg p-3 mb-4 flex items-start gap-2">
+              <AlertCircle size={16} className="flex-shrink-0 mt-0.5" />
+              <div className="text-sm">{errorMessage}</div>
+              <button
+                onClick={() => setErrorMessage('')}
+                className="ml-auto text-red-400 hover:text-red-300"
+                aria-label="Dismiss error"
+              >
+                <X size={16} />
+              </button>
+            </div>
+          )}
+
+          <div className="mb-6">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-3">
+                {currentExerciseIndex > 0 && (
+                  <button
+                    onClick={goToPreviousExercise}
+                    className="text-gray-400 hover:text-white"
+                    aria-label="Go to previous exercise"
+                  >
+                    <ArrowLeft size={24} />
+                  </button>
+                )}
+                <div className="text-sm text-gray-400">
+                  Exercise {currentExerciseIndex + 1} of {plannedWorkout.length}
+                </div>
+              </div>
+            </div>
+            <h1 className="text-2xl font-bold">{currentExercise.name}</h1>
+            <div className="text-stone-400">{currentExercise.muscleGroup.replace(/_/g, ' ')}</div>
+            <div className="text-xs text-gray-500 capitalize mt-1">{equipment}</div>
+            
+            {/* Current PR Display */}
+            {personalRecords[currentExercise.name] && (
+              <div className="mt-3 bg-yellow-900 bg-opacity-30 border border-yellow-700 rounded-lg p-2">
+                <div className="text-xs text-yellow-400 font-semibold">💪 Current PR</div>
+                <div className="text-sm text-yellow-300">
+                  {personalRecords[currentExercise.name].weight} lbs × {personalRecords[currentExercise.name].reps} reps
+                </div>
+              </div>
+            )}
+          </div>
+
+          {currentExerciseData.lastWorkout && (
+            <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-4 mb-6 shadow-lg border border-gray-700">
+              <h3 className="text-sm font-semibold text-gray-400 mb-2">Last Time:</h3>
+              <div className="flex gap-2 flex-wrap">
+                {currentExerciseData.lastWorkout.sets.map((set, idx) => (
+                  <div key={idx} className="text-sm bg-gray-700 px-3 py-1 rounded">
+                    {set.weight} lbs × {set.reps} reps
+                    {set.rpe && <span className="text-yellow-400 ml-1">@{set.rpe}</span>}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="space-y-3 mb-6">
+            {currentExerciseData.sets.map((set, idx) => (
+              <div key={idx} className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-4 shadow-lg border border-gray-700">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="font-semibold">Set {idx + 1}</h3>
+                  {currentExerciseData.sets.length > 1 && (
+                    <button
+                      onClick={() => removeSet(idx)}
+                      className="text-red-400 hover:text-red-300"
+                      aria-label={`Remove set ${idx + 1}`}
+                    >
+                      <X size={18} />
+                    </button>
+                  )}
+                </div>
+                <div className="grid grid-cols-3 gap-3 mb-3">
+                  <div>
+                    <label htmlFor={`weight-${idx}`} className="block text-xs text-gray-400 mb-1">{getWeightLabel()}</label>
+                    <input
+                      id={`weight-${idx}`}
+                      type="number"
+                      step="0.1"
+                      min="0"
+                      max="2000"
+                      value={set.weight}
+                      onChange={(e) => updateSet(idx, 'weight', e.target.value)}
+                      className="w-full bg-gray-700 rounded p-2 text-white"
+                      placeholder="0"
+                      aria-label={`Weight for set ${idx + 1}`}
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor={`reps-${idx}`} className="block text-xs text-gray-400 mb-1">Reps</label>
+                    <input
+                      id={`reps-${idx}`}
+                      type="number"
+                      min="0"
+                      max="200"
+                      value={set.reps}
+                      onChange={(e) => updateSet(idx, 'reps', e.target.value)}
+                      className="w-full bg-gray-700 rounded p-2 text-white"
+                      placeholder="0"
+                      aria-label={`Reps for set ${idx + 1}`}
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor={`rpe-${idx}`} className="block text-xs text-gray-400 mb-1">RPE</label>
+                    <input
+                      id={`rpe-${idx}`}
+                      type="number"
+                      step="0.5"
+                      min="0"
+                      max="10"
+                      value={set.rpe}
+                      onChange={(e) => updateSet(idx, 'rpe', e.target.value)}
+                      className="w-full bg-gray-700 rounded p-2 text-white"
+                      placeholder="0"
+                      aria-label={`RPE for set ${idx + 1}`}
+                    />
+                  </div>
+                </div>
+                
+                {(equipment === 'barbell' || equipment === 'sled' || equipment === 'dumbbell' || equipment === 'machine') && (
+                  <button
+                    onClick={() => openWeightCalculator(idx)}
+                    className="w-full bg-stone-700 hover:bg-stone-600 text-white py-2 rounded-lg text-sm"
+                  >
+                    🧮 Plate Calculator
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+
+          <button
+            onClick={addSet}
+            className="w-full bg-gradient-to-br from-gray-700 to-gray-800 hover:from-gray-600 hover:to-gray-700 text-white py-3 rounded-xl mb-4 shadow-lg border border-gray-600"
+          >
+            + Add Set
+          </button>
+        </div>
+
+        <div className="fixed bottom-20 left-0 right-0 p-8 bg-gradient-to-t from-zinc-950 via-zinc-950 to-transparent">
+          <button
+            onClick={completeExercise}
+            className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-4 rounded-lg flex items-center justify-center gap-2"
+          >
+            <Check size={20} />
+            Done
+          </button>
+        </div>
+
+        {/* Weight Calculator Modal */}
+        {showWeightCalculator && (
+          <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-8">
+            <div className="bg-gradient-to-br from-gray-800 to-gray-900 w-full max-w-md rounded-2xl p-6 shadow-2xl border border-gray-700">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-xl font-bold">Plate Calculator</h3>
+                <button
+                  onClick={() => setShowWeightCalculator(false)}
+                  className="text-gray-400 hover:text-white"
+                  aria-label="Close calculator"
+                >
+                  <X size={24} />
+                </button>
+              </div>
+
+              <div className="mb-4 text-center">
+                <div className="text-sm text-gray-400 mb-1">
+                  {equipment === 'barbell' && `Bar: ${startWeight}lb`}
+                  {equipment === 'sled' && `Sled: ${startWeight}lb`}
+                  {equipment === 'dumbbell' && 'Enter weight per dumbbell'}
+                  {equipment === 'machine' && 'Plate-loaded machine (both sides)'}
+                </div>
+                <div className="text-3xl font-bold text-stone-400">
+                  {calculateTotalWeight()} lbs
+                </div>
+                <div className="text-xs text-gray-500">Total Weight</div>
+              </div>
+
+              {equipment === 'dumbbell' ? (
+                <div className="space-y-3">
+                  <div>
+                    <label htmlFor="db-weight" className="block text-sm text-gray-400 mb-2">Weight per Dumbbell</label>
+                    <input
+                      id="db-weight"
+                      type="number"
+                      step="2.5"
+                      min="0"
+                      value={plateConfig.plates45}
+                      onChange={(e) => setPlateConfig({...plateConfig, plates45: parseFloat(e.target.value) || 0})}
+                      className="w-full bg-gray-700 rounded p-3 text-white text-center text-2xl"
+                      placeholder="0"
+                      aria-label="Dumbbell weight"
+                    />
+                    <div className="text-xs text-gray-500 mt-1 text-center">Total: {(plateConfig.plates45 || 0) * 2} lbs (both DBs)</div>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="text-sm text-gray-400 mb-2">
+                    {equipment === 'machine' ? 'Plates per side (no bar weight):' : 'Plates per side:'}
+                  </div>
+                  
+                  <div className="flex items-center justify-between">
+                    <span className="text-white">45 lb plates</span>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setPlateConfig({...plateConfig, plates45: Math.max(0, plateConfig.plates45 - 1)})}
+                        className="bg-gray-700 hover:bg-gray-600 w-8 h-8 rounded flex items-center justify-center"
+                        aria-label="Decrease 45lb plates"
+                      >
+                        -
+                      </button>
+                      <span className="w-8 text-center">{plateConfig.plates45}</span>
+                      <button
+                        onClick={() => setPlateConfig({...plateConfig, plates45: plateConfig.plates45 + 1})}
+                        className="bg-gray-700 hover:bg-gray-600 w-8 h-8 rounded flex items-center justify-center"
+                        aria-label="Increase 45lb plates"
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <span className="text-white">25 lb plates</span>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setPlateConfig({...plateConfig, plates25: Math.max(0, plateConfig.plates25 - 1)})}
+                        className="bg-gray-700 hover:bg-gray-600 w-8 h-8 rounded flex items-center justify-center"
+                        aria-label="Decrease 25lb plates"
+                      >
+                        -
+                      </button>
+                      <span className="w-8 text-center">{plateConfig.plates25}</span>
+                      <button
+                        onClick={() => setPlateConfig({...plateConfig, plates25: plateConfig.plates25 + 1})}
+                        className="bg-gray-700 hover:bg-gray-600 w-8 h-8 rounded flex items-center justify-center"
+                        aria-label="Increase 25lb plates"
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <span className="text-white">10 lb plates</span>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setPlateConfig({...plateConfig, plates10: Math.max(0, plateConfig.plates10 - 1)})}
+                        className="bg-gray-700 hover:bg-gray-600 w-8 h-8 rounded flex items-center justify-center"
+                        aria-label="Decrease 10lb plates"
+                      >
+                        -
+                      </button>
+                      <span className="w-8 text-center">{plateConfig.plates10}</span>
+                      <button
+                        onClick={() => setPlateConfig({...plateConfig, plates10: plateConfig.plates10 + 1})}
+                        className="bg-gray-700 hover:bg-gray-600 w-8 h-8 rounded flex items-center justify-center"
+                        aria-label="Increase 10lb plates"
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <span className="text-white">5 lb plates</span>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setPlateConfig({...plateConfig, plates5: Math.max(0, plateConfig.plates5 - 1)})}
+                        className="bg-gray-700 hover:bg-gray-600 w-8 h-8 rounded flex items-center justify-center"
+                        aria-label="Decrease 5lb plates"
+                      >
+                        -
+                      </button>
+                      <span className="w-8 text-center">{plateConfig.plates5}</span>
+                      <button
+                        onClick={() => setPlateConfig({...plateConfig, plates5: plateConfig.plates5 + 1})}
+                        className="bg-gray-700 hover:bg-gray-600 w-8 h-8 rounded flex items-center justify-center"
+                        aria-label="Increase 5lb plates"
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <span className="text-white">2.5 lb plates</span>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setPlateConfig({...plateConfig, plates2_5: Math.max(0, plateConfig.plates2_5 - 1)})}
+                        className="bg-gray-700 hover:bg-gray-600 w-8 h-8 rounded flex items-center justify-center"
+                        aria-label="Decrease 2.5lb plates"
+                      >
+                        -
+                      </button>
+                      <span className="w-8 text-center">{plateConfig.plates2_5}</span>
+                      <button
+                        onClick={() => setPlateConfig({...plateConfig, plates2_5: plateConfig.plates2_5 + 1})}
+                        className="bg-gray-700 hover:bg-gray-600 w-8 h-8 rounded flex items-center justify-center"
+                        aria-label="Increase 2.5lb plates"
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <button
+                onClick={applyCalculatedWeight}
+                className="w-full bg-stone-600 hover:bg-stone-700 text-white font-semibold py-3 rounded-lg mt-6"
+              >
+                Apply Weight
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const renderAdditions = () => (
+    <div className="min-h-screen bg-zinc-950 text-white flex flex-col items-center justify-center p-8">
+      <h1 className="text-3xl font-bold mb-8">Great work!</h1>
+      <p className="text-gray-400 mb-8 text-center">
+        You completed {completedWorkout.length} exercises. Want to add more?
+      </p>
+      
+      <div className="w-full max-w-md space-y-4">
+        <button
+          onClick={addMoreExercises}
+          className="w-full bg-stone-600 hover:bg-stone-700 text-white font-semibold py-4 rounded-lg"
+        >
+          Add More Exercises
+        </button>
+        
+        <button
+          onClick={finishWorkout}
+          className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-4 rounded-lg"
+        >
+          Finish Workout
+        </button>
+      </div>
+    </div>
+  );
+
+  const renderSummary = () => {
+    const lastWorkout = workoutHistory[0];
+
+    return (
+      <div className="min-h-screen bg-zinc-950 text-white pb-20">
+        <div className="p-8">
+          <h1 className="text-3xl font-bold mb-6">Workout Complete! 🎉</h1>
+          
+          {/* Show PRs if any were achieved */}
+          {newPRs.length > 0 && (
+            <div className="bg-gradient-to-br from-yellow-900 to-yellow-800 rounded-2xl p-6 mb-6 shadow-lg border border-yellow-600 animate-pr-celebration">
+              <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
+                🏆 New Personal Records!
+              </h2>
+              <div className="space-y-2">
+                {newPRs.map((pr, idx) => (
+                  <div key={idx} className="bg-yellow-950 bg-opacity-50 rounded-lg p-3">
+                    <div className="font-semibold text-yellow-200">{pr.exercise}</div>
+                    <div className="text-2xl font-bold text-yellow-100">
+                      {pr.weight} lbs × {pr.reps} reps
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          
+          <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-6 mb-6 shadow-lg border border-gray-700">
+            <div className="text-center mb-4">
+              <div className="text-4xl font-bold text-green-400 mb-2">
+                {lastWorkout.totalVolume.toLocaleString()} lbs
+              </div>
+              <div className="text-gray-400">Total Volume</div>
+            </div>
+            
+            <div className="border-t border-gray-700 pt-4">
+              <h3 className="font-semibold mb-3">Volume by Muscle Group</h3>
+              <div className="space-y-2">
+                {Object.entries(lastWorkout.volumeByMuscleGroup).map(([group, vol]) => (
+                  <div key={group} className="flex justify-between">
+                    <span className="text-gray-300">{group.replace(/_/g, ' ')}</span>
+                    <span className="text-stone-400">{vol.toLocaleString()} lbs</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-6 mb-6 shadow-lg border border-gray-700">
+            <h3 className="font-semibold mb-3">Exercises Completed</h3>
+            <div className="space-y-3">
+              {lastWorkout.exercises.map((ex, idx) => (
+                <div key={idx} className="border-b border-gray-700 pb-3 last:border-b-0">
+                  <div className="font-semibold">{ex.name}</div>
+                  <div className="text-sm text-gray-400 mb-1">{ex.muscleGroup.replace(/_/g, ' ')}</div>
+                  <div className="flex gap-2 flex-wrap">
+                    {ex.sets.map((set, setIdx) => (
+                      <span key={setIdx} className="text-sm bg-gray-700 px-2 py-1 rounded">
+                        {set.weight}×{set.reps}
+                        {set.rpe && <span className="text-yellow-400"> @{set.rpe}</span>}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <button
+            onClick={resetWorkout}
+            className="w-full bg-stone-600 hover:bg-stone-700 text-white font-semibold py-4 rounded-lg"
+          >
+            Back to Home
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  const renderPRScreen = () => {
+    // Get all exercises that have been done at least once
+    const allExercisesWithHistory = workoutHistory.flatMap(w => w.exercises);
+    const completedExerciseNames = [...new Set(allExercisesWithHistory.map(e => e.name))];
+
+    // Get all exercises from the library
+    const allLibraryExercises = [];
+    Object.entries(EXERCISE_LIBRARY).forEach(([muscleGroup, exercises]) => {
+      exercises.forEach(ex => {
+        allLibraryExercises.push({
+          name: ex.name,
+          muscleGroup: muscleGroup,
+          equipment: ex.equipment
+        });
+      });
+    });
+
+    // Separate completed and not-yet-completed exercises
+    const completedExercises = allLibraryExercises
+      .filter(ex => completedExerciseNames.includes(ex.name))
+      .sort((a, b) => a.name.localeCompare(b.name));
+
+    const notCompletedExercises = allLibraryExercises
+      .filter(ex => !completedExerciseNames.includes(ex.name))
+      .sort((a, b) => a.name.localeCompare(b.name));
+
+    return (
+      <div className="min-h-screen bg-zinc-950 text-white pb-20">
+        <div className="p-8">
+          <h1 className="text-3xl font-bold mb-6">Personal Records</h1>
+
+          {/* Completed Exercises */}
+          {completedExercises.length > 0 && (
+            <>
+              <h2 className="text-xl font-semibold mb-4 text-stone-400">Completed</h2>
+              <div className="space-y-3 mb-8">
+                {completedExercises.map(exercise => {
+                  const exerciseName = exercise.name;
+                  const pr = personalRecords[exerciseName];
+                  const exerciseHistory = allExercisesWithHistory
+                    .filter(e => e.name === exerciseName)
+                    .sort((a, b) => new Date(b.date) - new Date(a.date));
+                  
+                  return (
+                    <div key={exerciseName} className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-4 shadow-lg border border-gray-700">
+                      <div className="flex justify-between items-start mb-3">
+                        <div>
+                          <div className="font-bold text-lg">{exerciseName}</div>
+                          <div className="text-xs text-gray-400">
+                            {exercise.muscleGroup.replace(/_/g, ' ')}
+                          </div>
+                        </div>
+                        {pr && (
+                          <div className="text-right">
+                            <div className="text-yellow-400 font-bold text-xl">
+                              {pr.weight} lbs × {pr.reps}
+                            </div>
+                            <div className="text-xs text-yellow-500">PR</div>
+                            <div className="text-xs text-gray-400">
+                              {new Date(pr.date).toLocaleDateString()}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                      
+                      {/* Show last 5 sessions for this exercise */}
+                      <div className="border-t border-gray-700 pt-3">
+                        <div className="text-sm text-gray-400 mb-2">Recent History:</div>
+                        <div className="space-y-2">
+                          {exerciseHistory.slice(0, 5).map((session, idx) => (
+                            <div key={idx} className="text-sm">
+                              <div className="text-xs text-gray-500">
+                                {new Date(session.date).toLocaleDateString()}
+                              </div>
+                              <div className="flex gap-2 flex-wrap mt-1">
+                                {session.sets.map((set, setIdx) => (
+                                  <span 
+                                    key={setIdx} 
+                                    className={`text-xs px-2 py-1 rounded ${
+                                      pr && set.weight === pr.weight && set.reps === pr.reps
+                                        ? 'bg-yellow-900 text-yellow-200 border border-yellow-600'
+                                        : 'bg-gray-700 text-gray-300'
+                                    }`}
+                                  >
+                                    {set.weight}×{set.reps}
+                                    {set.rpe && <span className="text-yellow-400"> @{set.rpe}</span>}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          )}
+
+          {/* Not Yet Completed Exercises */}
+          <h2 className="text-xl font-semibold mb-4 text-gray-500">Not Yet Tested</h2>
+          <div className="space-y-3">
+            {notCompletedExercises.map(exercise => (
+              <div key={exercise.name} className="bg-gradient-to-br from-gray-900 to-gray-950 rounded-2xl p-4 shadow-lg border border-gray-800 opacity-60">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <div className="font-bold text-lg text-gray-400">{exercise.name}</div>
+                    <div className="text-xs text-gray-600">
+                      {exercise.muscleGroup.replace(/_/g, ' ')} • {exercise.equipment}
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-gray-600 font-bold text-lg">
+                      0 lbs × 0
+                    </div>
+                    <div className="text-xs text-gray-700">No data</div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="relative">
+      <style>{styles}</style>
+      {viewingWorkout ? renderWorkoutDetail() : (
+        <>
+          {currentScreen === 'home' && renderHome()}
+          {currentScreen === 'prs' && renderPRScreen()}
+          {currentScreen === 'opening' && renderOpeningScreen()}
+          {currentScreen === 'builder' && renderBuilder()}
+          {currentScreen === 'execute' && renderExecute()}
+          {currentScreen === 'additions' && renderAdditions()}
+          {currentScreen === 'summary' && renderSummary()}
+        </>
+      )}
+
+      <div className="fixed bottom-0 left-0 right-0 bg-gradient-to-t from-gray-900 to-gray-800 border-t border-gray-700 flex shadow-2xl">
+        <button
+          onClick={() => setCurrentScreen('prs')}
+          className={`flex-1 py-4 flex flex-col items-center ${currentScreen === 'prs' ? 'text-stone-400' : 'text-gray-400'}`}
+          aria-label="View personal records"
+        >
+          <TrendingUp size={24} />
+          <span className="text-xs mt-1">PRs</span>
+        </button>
+        <button
+          onClick={() => {
+            if (currentScreen !== 'home') {
+              setCurrentScreen('home');
+            }
+          }}
+          className={`flex-1 py-4 flex flex-col items-center ${currentScreen === 'home' ? 'text-stone-400' : 'text-gray-400'}`}
+          aria-label="Go to home"
+        >
+          <Home size={24} />
+          <span className="text-xs mt-1">Home</span>
+        </button>
+        <button
+          onClick={startWorkoutFlow}
+          className="flex-1 py-4 flex flex-col items-center text-gray-400"
+          aria-label="Start new workout"
+        >
+          <Dumbbell size={24} />
+          <span className="text-xs mt-1">Start Workout</span>
+        </button>
+      </div>
+
+      {/* Confirmation Dialog */}
+      {showConfirmDialog && (
+        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-8">
+          <div className="bg-gradient-to-br from-gray-800 to-gray-900 w-full max-w-sm rounded-2xl p-6 shadow-2xl border border-gray-700">
+            <h3 className="text-xl font-bold mb-4">Confirm Action</h3>
+            <p className="text-gray-300 mb-6">Are you sure you want to proceed? This action cannot be undone.</p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowConfirmDialog(false)}
+                className="flex-1 bg-gray-700 hover:bg-gray-600 text-white py-3 rounded-lg"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  confirmAction();
+                  setShowConfirmDialog(false);
+                }}
+                className="flex-1 bg-red-600 hover:bg-red-700 text-white py-3 rounded-lg"
+              >
+                Confirm
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
